@@ -1,0 +1,109 @@
+[package]
+name = "ankurah-xray"
+version = "0.1.0"
+edition = "2024"
+description = "Live inspector panel for Ankurah applications: per-entity event DAGs, head clocks, live-query taps, node internals."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+name = "ankurah_xray"
+
+[dependencies]
+# Leptos is left feature-free on purpose: `csr` / `hydrate` / `ssr` are the
+# CONSUMER's choice, and a library that picks one makes itself unusable in the
+# other modes.
+#
+# The 0.8.14 ceiling is a requirement, not a preference: leptos 0.8.15+ pulls
+# server_fn → wasm-streams, which wants js-sys ^0.3.85, and js-sys is pinned
+# =0.3.82 below (ankurah-signals 0.9.0). Raise both ends together or not at all.
+leptos = { version = ">=0.8.12, <=0.8.14", default-features = false }
+
+# Declared, never imported: the only thing this line does is hold the macro
+# crate to the same ceiling as the runtime. leptos_macro 0.8.17 emits
+# `::leptos::__as_shared_reactive_fn` (gated on `__internal_erase_components`,
+# which leptos turns on under `--cfg erase_components`), and the leptos runtime
+# only defines that symbol from 0.8.20 on — so a consumer building with
+# `--cfg erase_components` against runtime <=0.8.14 fails inside leptos's own
+# source. leptos's caret dependency permits the mismatch; this forbids it.
+# Delete together with the leptos ceiling above.
+leptos_macro = { version = ">=0.8.12, <0.8.15" }
+
+# The ankurah 0.9.0 family, pinned exactly as community's leptos-app pins it.
+# `wasm` enables the wasm-capable build of ankurah-core (and ankurah-proto,
+# -signals, ankql), which is what the panel's primary target — a browser —
+# needs; it also transitively enables `derive`, which the panel does not use.
+# Cargo unifies features across the graph, so this declaration can only ADD:
+# it does not deduplicate anything a consumer builds. One consequence: a
+# consumer's NATIVE server binary also gets `ankurah/wasm`. That compiles
+# cleanly (this crate's own host-side `cargo test` proves it) and every real
+# consumer enables `wasm` anyway, so it is carried knowingly.
+ankurah = { version = "=0.9.0", features = ["wasm"] }
+ankurah-signals = { version = "=0.9.0", features = ["reactive-graph"] }
+
+# The wasm-bindgen family is pinned (not caret-ranged) because ankurah-signals
+# 0.9.0 fails to build against newer wasm-bindgen. Unpin when that is fixed.
+wasm-bindgen = "=0.2.105"
+wasm-bindgen-futures = "=0.4.55"
+js-sys = "=0.3.82"
+web-sys = { version = "=0.3.82", features = [
+    "Window", "Location", "UrlSearchParams", "Storage", "Document", "Element", "HtmlElement",
+    "DomRect", "EventTarget", "Event", "KeyboardEvent", "MouseEvent", "PointerEvent",
+    # Raw-IndexedDB workarounds (see `system_panel::idb_counts`,
+    # `inspector::local_event_ids`) — retire under ankurah#342 / #357 item 2.
+    "IdbFactory", "IdbOpenDbRequest", "IdbRequest", "IdbDatabase", "IdbIndex",
+    "IdbTransaction", "IdbTransactionMode", "IdbObjectStore",
+] }
+
+# Decode ankurah's yrs-backend diffs (encode_diff_v2) into "+n −n" summaries.
+# Pinned to the exact version ankurah-core 0.9.0 resolves to, which keeps the
+# decoder on the same wire format as the producer. `decode.rs` hands raw
+# `&[u8]` to `Update::decode_v2` and no yrs type crosses the ankurah boundary,
+# so this is a wire-format consistency measure, not a type-identity one: a
+# second yrs copy in the graph is not by itself broken, but a yrs whose v2
+# encoding drifted from the producer's is.
+yrs = "=0.24.0"
+
+# The host trait is `async_trait(?Send)`: wasm futures are not Send, and the
+# panel only ever drives them from `spawn_local`.
+async-trait = "0.1"
+
+# Lets the inspector's document-keydown guard cross Leptos's `Send` bound on
+# cleanup closures while holding a JS closure, which is not Send. Sound because
+# the panel runs on the browser's main thread and nowhere else.
+send_wrapper = "0.6"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Neither of these is called by this crate. They exist to turn on the JS
+# randomness backend for two getrandom majors that arrive with no backend
+# selected, and that nothing else in the graph configures:
+#
+#   0.2 — via ankurah's rand 0.8 — needs `js`
+#   0.3 — via ankql's ulid → rand 0.9 — needs `wasm_js`
+#
+# Measured, one at a time on wasm32-unknown-unknown: dropping either line
+# fails the build ("targets are not supported by default" / "requires the
+# `wasm_js` feature"). getrandom 0.4 is NOT listed, because yrs's fastrand
+# 2.5 already declares it with `wasm_js` under its own wasm target block.
+#
+# The feature alone is sufficient: getrandom 0.3.4 and 0.4.3 select the
+# wasm_js backend from it (backends.rs). The `--cfg getrandom_backend`
+# rustflag is not needed and was removed — the `compile_error!` it appears to
+# guard against fires in the reverse case, flag set with the feature absent,
+# which is the only configuration that CREATES the failure.
+getrandom = { version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+
+[dev-dependencies]
+# Tests render the panel server-side, so they (and only they) turn on leptos's
+# `ssr` mode. `cargo build` and the wasm target keep leptos mode-free. Same
+# ceiling as the normal dependency, for the same js-sys reason.
+leptos = { version = ">=0.8.12, <=0.8.14", features = ["ssr"] }
+# The pluggability test stands up a real ankurah node on temp-dir sled storage
+# and defines its own model, so it needs the derive macro and a host-side
+# storage engine — neither of which the panel itself depends on.
+ankurah = { version = "=0.9.0", features = ["derive"] }
+ankurah-storage-sled = "=0.9.0"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time"] }

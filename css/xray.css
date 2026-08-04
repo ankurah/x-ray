@@ -1,0 +1,813 @@
+/* ============================================================================
+   ankurah-xray — the panel's stylesheet.
+
+   The panel draws itself entirely from CSS custom properties the HOST PAGE
+   defines: type scale, spacing, radii, surfaces, text colors, borders. It
+   ships no colors of its own, so it inherits the host's light/dark theming
+   automatically and never fights the host's design system.
+
+   Link `xray-tokens.css` BEFORE this file for a complete set of defaults; an
+   app with its own design system can skip it and define the same names, or
+   define only the `--xray-*` ones (which are the panel's own semantics) and
+   let the rest fall through to its existing tokens. Every property this file
+   reads is listed in xray-tokens.css.
+
+   Restrained blueprint cues only — dashed borders and a faint dotted grid on
+   the DAG canvas: the app must stay a usable app while x-ray is on.
+   ========================================================================= */
+
+/* ---- Scoped reset ---------------------------------------------------------
+
+   FOR: making the panel come out the same in a host page that ships no global
+   reset of its own. These rules were written inside an app that put
+   `box-sizing: border-box` on everything and stripped every button back to
+   inherited type with no border, background or padding — so the panel's fixed
+   widths and heights mean border-box geometry, and its buttons re-add exactly
+   the chrome they want on top of nothing. A host with plain UA defaults gives
+   the close button and the mini buttons native chrome, the Inspect button a
+   native border and font, and the drawer content-box geometry.
+
+   Scoped to the panel's own surfaces, so nothing leaks into the app, and
+   written through `:where()` so it carries ZERO specificity from the scope —
+   `:where(...) button` weighs exactly as much as a bare `button`, which is
+   what every `.xray*` rule below must be able to beat. */
+
+:where(.xrayPanel, .xrayDrawerScrim, .xrayDrawer),
+:where(.xrayPanel, .xrayDrawerScrim, .xrayDrawer) *,
+:where(.xrayPanel, .xrayDrawerScrim, .xrayDrawer) *::before,
+:where(.xrayPanel, .xrayDrawerScrim, .xrayDrawer) *::after {
+  box-sizing: border-box;
+}
+
+:where(.xrayPanel, .xrayDrawerScrim, .xrayDrawer) button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* ---- Shared bits --------------------------------------------------------- */
+
+.xrayMono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+/* ---- The three classes an app puts on its x-rayable elements -------------
+
+   `.xrayInspectable`    — this element opens the inspector when clicked.
+   `.xrayConcurrent`     — this element's entity has a multi-tip head right now.
+   `.xrayInspectCursor`  — optional; see below.
+
+   Apply the first two while `xray::state().enabled` is true; the app owns the
+   click handler and the head check (see the README). All three retire under
+   ankurah/community#53's `data-entity-id` accommodation, at which point the
+   panel installs its own handlers and its own classes.
+
+   Each selector names its class TWICE on purpose. These rules have to land on
+   an element the app also styles, and the class they replaced was written
+   against a specific host component (`.messageBubble.xrayInspectable`), so a
+   single class here would be a full specificity class lighter than what it is
+   overriding and would lose to any ordinary component rule that came later.
+   Doubling restores the weight without inventing a host-specific selector. */
+
+.xrayInspectable.xrayInspectable {
+  cursor: zoom-in;
+}
+
+/* Cursor inherits, so a descendant that sets its own keeps it — and text-
+   bearing content usually does (`cursor: text` on prose is common), which
+   leaves most of an inspectable element showing a text caret instead of the
+   zoom affordance. Put this on those spans; the app owns them. Deliberately
+   NOT a blanket `.xrayInspectable *`, which would take the pointer cursor away
+   from nested links and buttons. */
+.xrayInspectCursor.xrayInspectCursor {
+  cursor: zoom-in;
+}
+
+/* Hover = a translucent accent wash over the whole element. The inset shadow
+   composites OVER the element's own background, so it reads as a highlight in
+   both themes rather than replacing the theme color. */
+.xrayInspectable.xrayInspectable:hover {
+  box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--xray-accent) 22%, transparent);
+}
+
+/* Multi-tip head = live concurrency: a persistent dashed outline — outline vs
+   wash keeps "concurrent" and "hovered" visually distinct. */
+.xrayConcurrent.xrayConcurrent,
+.xrayConcurrent.xrayConcurrent:hover {
+  outline: 1.5px dashed var(--xray-accent);
+  outline-offset: 2px;
+}
+
+.xraySelectAll {
+  user-select: all;
+  -webkit-user-select: all;
+  cursor: text;
+}
+
+.xrayTitle {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.xrayClose {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-3);
+}
+
+.xrayClose:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.xrayChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.xrayChipOk {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.xrayChipCollection {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.xrayMetaLabel {
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+  flex: none;
+  min-width: 84px;
+}
+
+.xrayFaint {
+  color: var(--text-faint);
+}
+
+.xrayValueRow {
+  align-items: flex-start;
+}
+
+.xrayValue {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.xrayStateNote {
+  margin: var(--sp-2) 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.xrayError {
+  color: var(--danger);
+}
+
+.xrayStateNote.xrayError {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+}
+
+.xrayRefused {
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+}
+
+.xrayMiniButton {
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.xrayMiniButton:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* ---- L2 system panel (non-blocking right slide-over) --------------------- */
+
+/* The panel is NON-modal: it sits over the app, and the app stays clickable
+   underneath. `--xray-panel-z` is therefore meant to land low in a host's
+   overlay scale — above ordinary page content, below the host's own menus and
+   dialogs, so nothing the app pops up ends up buried behind the panel. */
+.xrayPanel {
+  position: fixed;
+  top: 64px;
+  right: 12px;
+  bottom: 64px;
+  z-index: var(--xray-panel-z);
+  width: min(400px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+  animation: xraySlideIn var(--t-med) var(--ease);
+}
+
+@keyframes xraySlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.xrayPanelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--sp-4) var(--sp-4) var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.xrayPanelHeaderDragging {
+  cursor: grabbing;
+}
+
+.xrayPanelSub {
+  margin: 2px 0 0;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.xrayPanelBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.xrayCard {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.xrayCardTitle {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+
+.xrayCardSub {
+  margin: -4px 0 0;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.xrayDetailRow {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* ---- Inspect-an-entity input row ----------------------------------------- */
+
+.xrayInspectRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.xrayInspectSelect,
+.xrayInspectInput {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: var(--fs-sm);
+}
+
+.xrayInspectInput {
+  flex: 1;
+  min-width: 160px;
+}
+
+.xrayInspectInput:focus,
+.xrayInspectSelect:focus {
+  border-color: var(--focus);
+  outline: none;
+}
+
+.xrayInspectGo {
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.xrayInspectGo:hover {
+  background: var(--primary-hover);
+}
+
+/* ---- Connection card ------------------------------------------------------ */
+
+.xrayConnState {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.xrayConnOk {
+  color: var(--ok);
+}
+
+.xrayConnBad {
+  color: var(--danger);
+}
+
+.xrayConnLog {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.xrayConnLogList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.xrayConnLogRow {
+  display: flex;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  padding: 2px 0;
+  border-bottom: 1px dotted var(--border);
+}
+
+.xrayConnLogRow:last-child {
+  border-bottom: none;
+}
+
+/* ---- Queries card ---------------------------------------------------------- */
+
+.xrayQueryRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.xrayQueryHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.xrayQueryLabel {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.xraySelection {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  background: var(--surface-3);
+  border-radius: var(--r-sm);
+  padding: 3px 6px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.xrayQueryStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* ---- Feed card -------------------------------------------------------------- */
+
+.xrayFeedList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.xrayFeedRow {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  text-align: left;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  animation: xrayFeedIn var(--xray-flash) var(--ease);
+}
+
+@keyframes xrayFeedIn {
+  from {
+    box-shadow: 0 0 0 2px var(--xray-glow);
+  }
+  to {
+    box-shadow: none;
+  }
+}
+
+.xrayFeedRow:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.xrayFeedRowStatic {
+  cursor: default;
+  color: var(--text-faint);
+}
+
+.xrayFeedTime {
+  color: var(--text-faint);
+}
+
+.xrayKind {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+}
+
+.xrayKind-add {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.xrayKind-update {
+  color: var(--link);
+  border-color: var(--link);
+}
+
+.xrayKind-remove {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.xrayKind-initial {
+  color: var(--text-faint);
+}
+
+.xrayFeedSummary {
+  color: var(--text);
+}
+
+.xrayFeedQuery {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.xrayFeedEvents {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.xrayFeedEvent {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: baseline;
+  padding-left: var(--sp-3);
+  border-left: 2px solid var(--border);
+}
+
+.xrayFeedParent {
+  color: var(--text-faint);
+}
+
+.xrayFeedOps {
+  color: var(--text-3);
+}
+
+/* ---- L1 inspector drawer ------------------------------------------------------ */
+
+/* The drawer IS modal — it lays a scrim over everything and takes the clicks.
+   The contract for a host, stated in its own terms: map `--xray-drawer-z` so
+   that any of your surfaces the visitor may open the inspector FROM sits below
+   it (a non-modal side panel, say, which leaves the page clickable), and
+   anything that must still interrupt the visitor — your own modals, context
+   menus — sits above it. The default leaves room on both sides. */
+.xrayDrawerScrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--xray-drawer-z);
+  background: var(--xray-scrim);
+  display: flex;
+  justify-content: flex-end;
+  animation: xrayFade var(--t-med) var(--ease);
+}
+
+@keyframes xrayFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.xrayDrawer {
+  width: min(560px, 100vw);
+  height: 100%;
+  background: var(--surface);
+  border-left: 1px dashed var(--border-strong);
+  box-shadow: var(--shadow-3);
+  display: flex;
+  flex-direction: column;
+  animation: xraySlideIn var(--t-med) var(--ease);
+}
+
+.xrayDrawerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.xrayDrawerSub {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.xrayDrawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.xrayMetaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.xrayHeadChips {
+  display: inline-flex;
+  gap: 4px;
+}
+
+/* Multi-tip head = live concurrency: tint the chips with the accent. */
+.xrayHeadConcurrent .xrayChip {
+  background: var(--xray-accent);
+  color: var(--xray-accent-text);
+  border-color: var(--xray-accent);
+}
+
+.xrayConcurrencyNote {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+.xrayProvenance {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.xrayFootnote {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  border-top: 1px dotted var(--border);
+  padding-top: var(--sp-2);
+}
+
+.xrayDetail {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.xrayDetailHint {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+.xrayDetailOps {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.xrayBackendTag {
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+/* ---- The DAG ---------------------------------------------------------------------- */
+
+.xrayDagWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background:
+    radial-gradient(circle, var(--border) 1px, transparent 1px) 0 0 / 18px 18px,
+    var(--surface);
+}
+
+.xrayDag {
+  display: block;
+}
+
+.xrayEdge {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.6;
+  opacity: 0.65;
+}
+
+.xrayNode {
+  cursor: pointer;
+}
+
+.xrayNode circle {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 2;
+  transition: stroke var(--t-fast) var(--ease);
+}
+
+.xrayNode:hover circle {
+  stroke: var(--link);
+}
+
+/* Creation event: mint fill + sprout (ankura!) mark. */
+.xrayNodeCreate circle {
+  fill: var(--accent);
+  stroke: var(--xray-create-stroke);
+}
+
+.xraySprout {
+  fill: none;
+  stroke: var(--on-accent);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+/* Current head tips. */
+.xrayNodeTip circle {
+  stroke: var(--xray-tip);
+  stroke-width: 3;
+}
+
+/* Events fetched from a peer (vs local): dashed outline. */
+.xrayNodeFetched circle {
+  stroke-dasharray: 3 2;
+}
+
+.xrayNodeSelected circle {
+  stroke: var(--focus);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 4px var(--xray-glow));
+}
+
+.xrayNodeLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--text-3);
+}
+
+.xrayNodeOps {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--text-faint);
+}
+
+.xrayDagNote {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+/* ---- Small screens ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  .xrayPanel {
+    top: 60px;
+    right: 8px;
+    left: 8px;
+    bottom: 72px;
+    width: auto;
+  }
+
+  .xrayDrawer {
+    width: 100vw;
+  }
+}
+
+/* ---- Reduced motion -------------------------------------------------------
+
+   FOR: honoring a visitor who asked their OS for less movement, without
+   assuming the host page did it for them. The panel used to ride on a global
+   `@media (prefers-reduced-motion: reduce)` in the app it was extracted from;
+   standing alone it carries its own, scoped to its four moving parts — the
+   panel's slide-in, the drawer's fade and slide, the flash on a new feed row,
+   and the DAG node's stroke transition on hover/select.
+
+   Last in the file and no `!important`: each rule below matches the same
+   selector as the one that set the animation, so equal specificity plus later
+   source order is enough, and a host that wants to restore motion still can. */
+
+@media (prefers-reduced-motion: reduce) {
+  .xrayPanel,
+  .xrayDrawerScrim,
+  .xrayDrawer,
+  .xrayFeedRow {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+
+  .xrayNode circle {
+    transition-duration: 0.01ms;
+  }
+}

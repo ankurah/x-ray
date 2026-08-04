@@ -1,0 +1,8 @@
+/target
+.DS_Store
+
+# Cargo.lock IS tracked. The usual "libraries don't commit a lock" convention
+# assumes a published crate whose consumers resolve their own graph; this one
+# is `publish = false`, so the only thing the lock governs is `git clone &&
+# cargo build` in this repo — where it is what keeps a reviewer's resolve, and
+# a fresh checkout's, identical to the one the suite was run against.

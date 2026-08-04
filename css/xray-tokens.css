@@ -1,0 +1,138 @@
+/* ============================================================================
+   ankurah-xray — default design tokens.
+
+   FOR: making the panel look right in an app that has no design system of its
+   own. `xray.css` reads every custom property listed here and ships no colors
+   itself, so this file is the complete list of what the panel needs the host
+   page to define. Link it BEFORE xray.css.
+
+   An app WITH a design system should skip this file entirely and map these
+   names onto its own — most of them (--surface, --text, --border, --sp-*,
+   --fs-*, --r-*) are conventional names it probably already has. The nine
+   --xray-* properties are the panel's own semantics and have no equivalent in
+   a typical system, so define those explicitly:
+
+     --xray-accent        highlight for hovered inspectables and concurrent heads
+     --xray-accent-text   text color on top of --xray-accent
+     --xray-tip           ring around the DAG's current head tips
+     --xray-glow          soft halo behind a selected DAG node / new feed row
+     --xray-create-stroke outline of the DAG's creation node
+     --xray-scrim         the fill over the page behind the modal drawer
+     --xray-flash         how long a newly arrived feed row stays highlighted
+     --xray-panel-z       stacking order of the non-modal system panel
+     --xray-drawer-z      stacking order of the modal inspector drawer
+
+   The palette below is deliberately brand-neutral slate + amber. It is a
+   starting point, not a look to be preserved.
+   ========================================================================= */
+
+:root {
+  /* ---- Type ---- */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-xs: 11.5px;
+  --fs-sm: 12.5px;
+  --fs-md: 13.5px;
+  --fs-lg: 17px;
+
+  /* ---- Space / radius / motion ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.4, 1);
+  --t-fast: 120ms;
+  --t-med: 200ms;
+
+  --shadow-3: 0 16px 40px rgb(15 23 42 / 20%);
+
+  /* ---- Semantic tokens: light ---- */
+  color-scheme: light dark;
+
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #eef2f6;
+
+  --border: #dfe5ec;
+  --border-strong: #c2ccd8;
+
+  --text: #16202b;
+  --text-2: #4a5866;
+  --text-3: #5e6c7a;
+  --text-faint: #93a0ad;
+
+  --primary: #24384d;
+  --primary-hover: #2f4864;
+  --on-primary: #f7fafc;
+
+  --accent: #d8e4f2;
+  --on-accent: #24384d;
+
+  --link: #2c6cb0;
+  --focus: #2c6cb0;
+
+  --ok: #2e7d4f;
+  --danger: #a43e3e;
+  --danger-bg: #ffe8e6;
+  --danger-border: #f0b9b6;
+
+  /* ---- The panel's own nine ---- */
+  --xray-accent: #f0b357;
+  --xray-accent-text: #3a2a0c;
+  --xray-tip: #47b189;
+  --xray-glow: rgb(71 177 137 / 30%);
+  --xray-create-stroke: #24384d;
+  --xray-scrim: rgb(16 40 36 / 25%);
+
+  /* How long a new feed row keeps its glow. Its own property rather than
+     --t-med, because it is a "look at this, it just happened" beat and not
+     interface motion — reduced motion still zeroes it. */
+  --xray-flash: 500ms;
+
+  /* Where the panel's two surfaces sit in the host's stacking order. Defaults
+     assume a conventional scale (page chrome in the tens, modals in the
+     hundreds): the panel is non-modal and stays low so the app's own menus and
+     dialogs can cover it, the drawer is modal and stays high, with room left
+     above it for anything of the host's that must still interrupt. An app with
+     a different scale remaps both. */
+  --xray-panel-z: 55;
+  --xray-drawer-z: 950;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #151b22;
+    --surface-2: #1b232c;
+    --surface-3: #222c37;
+
+    --border: #2b3742;
+    --border-strong: #3e4d5b;
+
+    --text: #e7edf3;
+    --text-2: #b6c2cd;
+    --text-3: #93a2b0;
+    --text-faint: #6f7e8c;
+
+    --primary: #3b6188;
+    --primary-hover: #47739f;
+    --on-primary: #f7fafc;
+
+    --accent: #24384d;
+    --on-accent: #d8e4f2;
+
+    --link: #7cb0e0;
+    --focus: #7cb0e0;
+
+    --danger: #e79a94;
+    --danger-bg: #3a2220;
+    --danger-border: #6b3f3b;
+
+    --shadow-3: 0 16px 40px rgb(0 0 0 / 45%);
+
+    --xray-create-stroke: #d8e4f2;
+  }
+}
