@@ -13,7 +13,7 @@ a devtools browser extension*, and the destination — an inspector attachable t
 an ankurah app that never had to know it was being inspected. The mental model
 throughout is React/Redux DevTools.
 
-**Status: local, pre-publication.** No remote, not on crates.io, no stability
+**Status: public repository, not yet on crates.io, no stability
 promise. The public API here is shaped to shrink, not to be depended on.
 
 ---
